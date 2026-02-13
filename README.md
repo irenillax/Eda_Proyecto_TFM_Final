@@ -1,4 +1,5 @@
 Análisis exploratorio de Ventas Online Retail. 
+
 Este proyecto corresponde al Trabajo Fin de Máster y consiste en un análisis exploratorio de datos (EDA) sobre un dataset de ventas de comercio electrónico, integrando información transaccional y datos de población para enriquecer el análisis.
 
 El objetivo principal ha sido entender el comportamiento de las ventas, detectar patrones relevantes y extraer conclusiones que puedan aportar valor desde una perspectiva analítica y de negocio.
