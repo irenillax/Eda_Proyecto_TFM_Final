@@ -1,55 +1,84 @@
+from pathlib import Path
 import pandas as pd
 
-# ===============================
-# 1. Cargar datasets
-# ===============================
-ventas_pais = pd.read_csv("data/processed/ventas_por_pais.csv")
-poblacion = pd.read_csv("data/raw/world_population.csv")
+# ============================================
+# 1. Definir rutas
+# ============================================
 
-# ===============================
-# 2. Limpiar y preparar población
-# ===============================
+BASE_DIR = Path(__file__).resolve().parents[1]
+SALES_PATH = BASE_DIR / "data" / "processed" / "online_retail_clean.csv"
+POP_PATH = BASE_DIR / "data" / "raw" / "world_population.csv"
+OUTPUT_PATH = BASE_DIR / "data" / "processed" / "ventas_poblacion_2023.csv"
 
-# Nos quedamos solo con país y población 2023
+# ============================================
+# 2. Cargar datasets
+# ============================================
+
+ventas = pd.read_csv(SALES_PATH)
+poblacion = pd.read_csv(POP_PATH)
+
+print("Dataset de ventas cargado:")
+print(ventas.shape)
+
+print("\nDataset de población cargado:")
+print(poblacion.shape)
+
+# ============================================
+# 3. Preparar dataset de población
+# ============================================
+
 poblacion_2023 = poblacion[["Country Name", "2023"]].copy()
 
-# Renombrar columnas para poder unir
 poblacion_2023 = poblacion_2023.rename(columns={
     "Country Name": "Country",
     "2023": "population_2023"
 })
 
-print("Población 2023:")
+print("\nPoblación 2023 preparada:")
 print(poblacion_2023.head())
 print(poblacion_2023.shape)
 
-# ===============================
-# 3. Unir datasets
-# ===============================
-dataset_final = ventas_pais.merge(
+# ============================================
+# 4. Unir datasets
+# ============================================
+
+dataset_final = ventas.merge(
     poblacion_2023,
     on="Country",
     how="left"
 )
 
-print("\nDataset final:")
-print(dataset_final.head())
+# ============================================
+# Eliminar filas sin población
+# ============================================
+
+dataset_final = dataset_final.dropna(subset=["population_2023"])
+
+print("\nFilas después de eliminar países sin población:")
 print(dataset_final.shape)
 
-# ===============================
-# 4. Guardar dataset final
-# ===============================
-dataset_final.to_csv(
-    "data/processed/ventas_poblacion_2023.csv",
-    index=False
+# ============================================
+# 5. Crear variable derivada
+# ============================================
+
+dataset_final["revenue_per_capita"] = (
+    dataset_final["LineTotal"] / dataset_final["population_2023"]
 )
 
-print("✅ Dataset final guardado correctamente")
+# ============================================
+# 6. Guardar dataset final
+# ============================================
 
-import pandas as pd
+dataset_final.to_csv(OUTPUT_PATH, index=False)
 
-df = pd.read_csv("data/processed/ventas_poblacion_2023.csv")
+print("\nDataset final guardado correctamente")
+print(f"Ruta de salida: {OUTPUT_PATH}")
 
-print("Shape del dataset final:")
-print(df.shape)
+print("\nDimensiones del dataset final:")
+print(dataset_final.shape)
 
+print("\nPrimeras filas del dataset final:")
+print(dataset_final.head())
+
+print("\nNulos por columna:")
+print(dataset_final.isna().sum())

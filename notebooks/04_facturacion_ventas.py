@@ -1,61 +1,51 @@
+from pathlib import Path
 import pandas as pd
 
-# ===============================
-# CARGA DATASET LIMPIO DE VENTAS
-# ===============================
+BASE_DIR = Path(__file__).resolve().parents[1]
+CLEAN_PATH = BASE_DIR / "data" / "processed" / "online_retail_clean.csv"
+OUTPUT_PATH = BASE_DIR / "data" / "processed" / "ventas_por_pais.csv"
 
-df_sales = pd.read_csv(
-    "data/processed/online_retail_clean.csv"
-)
+# ============================================
+# 2. Cargar dataset limpio de ventas
+# ============================================
 
-print("Dataset ventas cargado:")
-print(df_sales.shape)
-print(df_sales.head())
+df_sales = pd.read_csv(CLEAN_PATH)
 
-# ===============================
-# FACTURACIÓN POR PAÍS
-# ===============================
+print("Dataset limpio de ventas cargado correctamente")
+print(f"Filas: {df_sales.shape[0]}")
+print(f"Columnas: {df_sales.shape[1]}")
 
-# Crear revenue
-df_sales["revenue"] = df_sales["Quantity"] * df_sales["UnitPrice"]
+# ============================================
+# 3. Facturación por país
+# ============================================
 
-# Agrupar ventas por país
 ventas_pais = (
     df_sales
     .groupby("Country", as_index=False)
     .agg(
-        total_revenue=("revenue", "sum"),
+        total_revenue=("LineTotal", "sum"),
         total_quantity=("Quantity", "sum"),
         num_invoices=("InvoiceNo", "nunique")
     )
+    .sort_values("total_revenue", ascending=False)
 )
 
-print("Ventas por país:")
+print("\nVentas por país:")
 print(ventas_pais.head())
 
-# Guardar dataset intermedio
-ventas_pais.to_csv(
-    "data/processed/ventas_por_pais.csv",
-    index=False
-)
+# ============================================
+# 4. Guardar dataset agregado
+# ============================================
 
+ventas_pais.to_csv(OUTPUT_PATH, index=False)
 
+print("\nDataset ventas_por_pais guardado correctamente")
+print(f"Ruta de salida: {OUTPUT_PATH}")
+print(f"Dimensiones: {ventas_pais.shape}")
 
-# Cargar dataset limpio
-df = pd.read_csv("data/processed/online_retail_clean.csv")
+# ============================================
+# 5. Métricas generales
+# ============================================
 
-# Asegurar datetime
-df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
-
-# Eliminar devoluciones
-df = df[df["Quantity"] > 0]
-
-# Crear columna facturación
-df["Revenue"] = df["Quantity"] * df["UnitPrice"]
-
-print("DIMENSIONES DATASET FACTURACIÓN:")
-print(df.shape)
-
-print("\nFACTURACIÓN TOTAL:")
-print(df["Revenue"].sum())
-
+print("\nFacturación total global:")
+print(df_sales["LineTotal"].sum())

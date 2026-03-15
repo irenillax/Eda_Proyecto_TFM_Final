@@ -1,36 +1,77 @@
+from pathlib import Path
 import pandas as pd
+from scipy.stats import pearsonr, f_oneway
 
-# Cargar dataset limpio
-df = pd.read_csv("data/processed/online_retail_clean.csv")
+# ============================================
+# 1. Definir rutas
+# ============================================
 
-# Asegurar datetime
-df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
+BASE_DIR = Path(__file__).resolve().parents[1]
+DATASET_PATH = BASE_DIR / "data" / "processed" / "ventas_poblacion_2023.csv"
 
-# Eliminar devoluciones
-df = df[df["Quantity"] > 0]
+# ============================================
+# 2. Cargar dataset final
+# ============================================
 
-# Crear facturación
-df["Revenue"] = df["Quantity"] * df["UnitPrice"]
+df = pd.read_csv(DATASET_PATH)
 
-# ======================
-# FACTURACIÓN POR PAÍS
-# ======================
-facturacion_pais = (
-    df.groupby("Country")["Revenue"]
-    .sum()
-    .sort_values(ascending=False)
+print("Dataset final cargado correctamente")
+print(f"Dimensiones: {df.shape}")
+
+# ============================================
+# 3. Estadística descriptiva básica
+# ============================================
+
+print("\nResumen descriptivo de variables numéricas:")
+print(df[["Quantity", "UnitPrice", "LineTotal"]].describe())
+
+# ============================================
+# 4. Correlación entre cantidad y facturación
+# ============================================
+
+corr, p_value_corr = pearsonr(df["Quantity"], df["LineTotal"])
+
+print("\n--- CORRELACIÓN DE PEARSON ---")
+print(f"Correlación entre Quantity y LineTotal: {corr:.4f}")
+print(f"p-valor: {p_value_corr:.6f}")
+
+if p_value_corr < 0.05:
+    print("Conclusión: existe una relación estadísticamente significativa entre cantidad y facturación.")
+else:
+    print("Conclusión: no se observa una relación estadísticamente significativa entre cantidad y facturación.")
+
+# ============================================
+# 5. ANOVA por trimestre
+# ============================================
+
+# Agrupar facturación por factura para evitar trabajar solo a nivel de línea
+facturas = (
+    df.groupby(["InvoiceNo", "Quarter"], as_index=False)
+    .agg(invoice_revenue=("LineTotal", "sum"))
 )
 
-print("\nFACTURACIÓN POR PAÍS (TOP 10):")
-print(facturacion_pais.head(10))
+q1 = facturas[facturas["Quarter"] == 1]["invoice_revenue"]
+q2 = facturas[facturas["Quarter"] == 2]["invoice_revenue"]
+q3 = facturas[facturas["Quarter"] == 3]["invoice_revenue"]
+q4 = facturas[facturas["Quarter"] == 4]["invoice_revenue"]
 
-# ======================
-# FACTURACIÓN POR AÑO
-# ======================
-df["Year"] = df["InvoiceDate"].dt.year
+anova_stat, p_value_anova = f_oneway(q1, q2, q3, q4)
 
-facturacion_anio = df.groupby("Year")["Revenue"].sum()
+print("\n--- ANOVA POR TRIMESTRE ---")
+print(f"Estadístico F: {anova_stat:.4f}")
+print(f"p-valor: {p_value_anova:.6f}")
 
-print("\nFACTURACIÓN POR AÑO:")
-print(facturacion_anio)
+if p_value_anova < 0.05:
+    print("Conclusión: existen diferencias estadísticamente significativas entre trimestres.")
+else:
+    print("Conclusión: no se observan diferencias estadísticamente significativas entre trimestres.")
+
+# ============================================
+# 6. Medias por trimestre
+# ============================================
+
+print("\nMedia de facturación por factura y trimestre:")
+print(facturas.groupby("Quarter")["invoice_revenue"].mean())
+
+
 

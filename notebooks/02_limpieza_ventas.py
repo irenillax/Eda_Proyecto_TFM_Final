@@ -1,101 +1,92 @@
+from pathlib import Path
 import pandas as pd
 
-# Cargar dataset de ventas en bruto
-df_sales = pd.read_csv("data/raw/online_retail.csv")
+# ============================================
+# 1. Rutas
+# ============================================
+BASE_DIR = Path(__file__).resolve().parents[1]
+RAW_PATH = BASE_DIR / "data" / "raw" / "online_retail.csv"
+CLEAN_PATH = BASE_DIR / "data" / "processed" / "online_retail_clean.csv"
 
-# Información general del dataset
-print("INFO DEL DATASET")
-print(df_sales.info())
+# ============================================
+# 2. Cargar dataset bruto
+# ============================================
+df = pd.read_csv(RAW_PATH, encoding="latin1")
 
-print("\nDIMENSIONES")
-print(df_sales.shape)
+print("Dataset bruto cargado correctamente")
+print(f"Filas iniciales: {df.shape[0]}")
+print(f"Columnas iniciales: {df.shape[1]}")
 
-print("\nPRIMERAS FILAS")
-print(df_sales.head())
+# ============================================
+# 3. Revisión inicial
+# ============================================
+print("\nNulos por columna antes de limpiar:")
+print(df.isna().sum())
 
-print("\nVALORES NULOS POR COLUMNA")
-print(df_sales.isnull().sum())
+duplicados_antes = df.duplicated().sum()
+print(f"\nDuplicados antes de limpiar: {duplicados_antes}")
 
-print("\nFILAS DUPLICADAS")
-print(df_sales.duplicated().sum())
+# ============================================
+# 4. Conversión de tipos
+# ============================================
+df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"], errors="coerce")
 
-print("\nTIPOS DE DATOS")
-print(df_sales.dtypes)
+# ============================================
+# 5. Limpieza
+# ============================================
 
-print("\nTIPOS DE DATOS")
-print(df_sales.dtypes)
+# Eliminar duplicados
+df = df.drop_duplicates()
 
-# Convertir InvoiceDate a datetime
-df_sales["InvoiceDate"] = pd.to_datetime(df_sales["InvoiceDate"])
+# Eliminar filas con nulos en variables críticas
+df = df.dropna(subset=[
+    "InvoiceNo",
+    "StockCode",
+    "Description",
+    "Quantity",
+    "InvoiceDate",
+    "UnitPrice",
+    "Country"
+])
 
-import pandas as pd
+# Mantener CustomerID aunque tenga nulos
+# porque luego se usa para indicar presencia/ausencia de cliente
 
-# Cargar dataset de ventas en bruto
-df_sales = pd.read_csv("data/raw/online_retail.csv")
-
-# ✅ Convertir InvoiceDate a datetime (ESTO ES EL PUNTO 1)
-df_sales["InvoiceDate"] = pd.to_datetime(df_sales["InvoiceDate"])
-
-# Información general del dataset
-print("INFO DEL DATASET")
-print(df_sales.info())
-
-print("\nDIMENSIONES")
-print(df_sales.shape)
-
-print("\nPRIMERAS FILAS")
-print(df_sales.head())
-
-print("\nVALORES NULOS POR COLUMNA")
-print(df_sales.isnull().sum())
-
-print("\nFILAS DUPLICADAS")
-print(df_sales.duplicated().sum())
-
-print("\nTIPOS DE DATOS")
-print(df_sales.dtypes)
-
-print("\nDATASET FINAL")
-print(df_sales.shape)
-
-import numpy as np
-
-# Asegurar que InvoiceDate sea datetime
-df_sales["InvoiceDate"] = pd.to_datetime(df_sales["InvoiceDate"], errors="coerce")
-
-# ===============================
-# VARIABLES DERIVADAS
-# ===============================
-
-# Facturación por línea
-df_sales["LineTotal"] = df_sales["Quantity"] * df_sales["UnitPrice"]
-
-# Variables temporales
-df_sales["Year"] = df_sales["InvoiceDate"].dt.year
-df_sales["Month"] = df_sales["InvoiceDate"].dt.month
-df_sales["DayOfWeek"] = df_sales["InvoiceDate"].dt.dayofweek
-df_sales["IsWeekend"] = df_sales["DayOfWeek"].isin([5, 6]).astype(int)
-df_sales["Hour"] = df_sales["InvoiceDate"].dt.hour
-df_sales["Quarter"] = df_sales["InvoiceDate"].dt.quarter
-df_sales["WeekOfYear"] = df_sales["InvoiceDate"].dt.isocalendar().week.astype(int)
-
-# Indicadores de negocio
-df_sales["IsReturn"] = (df_sales["Quantity"] < 0).astype(int)
-df_sales["HasCustomerID"] = df_sales["CustomerID"].notna().astype(int)
-
-# Variables de texto
-df_sales["DescLen"] = df_sales["Description"].fillna("").astype(str).str.len()
-df_sales["DescWords"] = df_sales["Description"].fillna("").astype(str).str.split().str.len()
-
-print("\nSHAPE FINAL TRAS FEATURE ENGINEERING:")
-print(df_sales.shape)
-
-# Guardar dataset con features (para Power BI)
-df_sales.to_csv("data/processed/online_retail_features.csv", index=False)
-print("Guardado: data/processed/online_retail_features.csv")
+# Eliminar devoluciones y operaciones no válidas
+df = df[df["Quantity"] > 0]
+df = df[df["UnitPrice"] > 0]
+df = df[~df["InvoiceNo"].astype(str).str.startswith("C", na=False)]
 
 
+# ============================================
+# 6. Variables derivadas
+# ============================================
+df["LineTotal"] = df["Quantity"] * df["UnitPrice"]
 
+df["Year"] = df["InvoiceDate"].dt.year
+df["Month"] = df["InvoiceDate"].dt.month
+df["Quarter"] = df["InvoiceDate"].dt.quarter
+df["Hour"] = df["InvoiceDate"].dt.hour
+df["DayOfWeek"] = df["InvoiceDate"].dt.dayofweek
+df["WeekOfYear"] = df["InvoiceDate"].dt.isocalendar().week.astype(int)
+
+df["IsWeekend"] = df["DayOfWeek"].isin([5, 6]).astype(int)
+df["HasCustomerID"] = df["CustomerID"].notna().astype(int)
+df["IsReturn"] = 0
+
+# ============================================
+# 7. Guardar dataset limpio
+# ============================================
+CLEAN_PATH.parent.mkdir(parents=True, exist_ok=True)
+df.to_csv(CLEAN_PATH, index=False)
+
+print("\nDataset limpio guardado correctamente")
+print(f"Ruta de salida: {CLEAN_PATH}")
+print(f"Filas finales: {df.shape[0]}")
+print(f"Columnas finales: {df.shape[1]}")
+
+print("\nNulos por columna después de limpiar:")
+print(df.isna().sum())
 
 
 
